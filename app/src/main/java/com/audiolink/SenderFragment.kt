@@ -87,6 +87,11 @@ class SenderFragment : Fragment() {
         LogManager.logSender("Sender tab ready")
     }
 
+    override fun onResume() {
+        super.onResume()
+        tvPort.text = "Port: ${SettingsManager.getAudioPort(requireContext())}"
+    }
+
     private fun startServer() {
         LogManager.logSender("Requesting screen capture permission...")
         tvStatus.text = "Requesting permission..."
@@ -107,7 +112,7 @@ class SenderFragment : Fragment() {
     private fun detectAndShowIp() {
         val ip = getBestLocalIp()
         tvIp.text = "IP: $ip"
-        tvPort.text = "Port: ${DiscoveryManager.AUDIO_PORT}"
+        tvPort.text = "Port: ${SettingsManager.getAudioPort(requireContext())}"
         LogManager.logSender("Detected IP: $ip")
     }
 

@@ -13,11 +13,8 @@ class DiscoveryManager(
     private val onLog: (String) -> Unit
 ) {
     companion object {
-        const val DISCOVERY_PORT = 9998
-        const val AUDIO_PORT = 9999
-        const val BROADCAST_INTERVAL = 2000L
         const val SENDER_TAG = "AUDIOLINK_SENDER"
-        const val SCAN_TIMEOUT = 8000L
+        const val BROADCAST_INTERVAL = 2000L
     }
 
     data class Device(val name: String, val ip: String, val port: Int)
@@ -50,13 +47,14 @@ class DiscoveryManager(
     }
 
     fun startBroadcasting(deviceName: String) {
+        val audioPort = SettingsManager.getAudioPort(context)
         isBroadcasting = true
         onLog("Broadcasting as '$deviceName'...")
         Thread {
             try {
                 broadcastSocket = DatagramSocket()
                 broadcastSocket?.broadcast = true
-                val message = "$SENDER_TAG|$deviceName|$AUDIO_PORT"
+                val message = "$SENDER_TAG|$deviceName|$audioPort"
                 val data = message.toByteArray()
                 while (isBroadcasting) {
                     val broadcastAddresses = getBroadcastAddresses()
@@ -65,10 +63,11 @@ class DiscoveryManager(
                     }
                     for (broadcastAddr in broadcastAddresses) {
                         try {
+                            val discoveryPort = SettingsManager.getDiscoveryPort(context)
                             val packet = DatagramPacket(
                                 data, data.size,
                                 broadcastAddr,
-                                DISCOVERY_PORT
+                                discoveryPort
                             )
                             broadcastSocket?.send(packet)
                             onLog("Broadcast sent to ${broadcastAddr.hostAddress}")
@@ -85,17 +84,19 @@ class DiscoveryManager(
     }
 
     fun startListening(onScanComplete: (() -> Unit)? = null) {
+        val discoveryPort = SettingsManager.getDiscoveryPort(context)
+        val scanTimeoutMs = SettingsManager.getScanTimeoutMs(context)
         isListening = true
         acquireMulticastLock()
-        onLog("Scanning for ${SCAN_TIMEOUT / 1000}s...")
+        onLog("Scanning for ${scanTimeoutMs / 1000}s...")
         Thread {
             val startTime = System.currentTimeMillis()
             val foundIps = mutableSetOf<String>()
             try {
-                listenSocket = DatagramSocket(DISCOVERY_PORT)
+                listenSocket = DatagramSocket(discoveryPort)
                 listenSocket?.soTimeout = 1000
                 val buffer = ByteArray(1024)
-                while (isListening && (System.currentTimeMillis() - startTime) < SCAN_TIMEOUT) {
+                while (isListening && (System.currentTimeMillis() - startTime) < scanTimeoutMs) {
                     try {
                         val packet = DatagramPacket(buffer, buffer.size)
                         listenSocket?.receive(packet)
@@ -109,13 +110,14 @@ class DiscoveryManager(
                                     Device(
                                         name = parts[1],
                                         ip = senderIp,
-                                        port = parts[2].toIntOrNull() ?: AUDIO_PORT
+                                        port = parts[2].toIntOrNull()
+                                            ?: SettingsManager.getAudioPort(context)
                                     )
                                 )
                             }
                         }
                     } catch (e: Exception) {
-                        // Read timeout — normal, keep looping
+                        // timeout — keep looping
                     }
                 }
             } catch (e: Exception) {

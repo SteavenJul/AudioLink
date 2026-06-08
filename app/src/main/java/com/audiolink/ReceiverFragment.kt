@@ -100,12 +100,13 @@ class ReceiverFragment : Fragment() {
     }
 
     private fun startScan() {
+        val scanSeconds = SettingsManager.getScanTimeoutMs(requireContext()) / 1000
         isScanning = true
         deviceAdapter.clear()
         btnConnect.isEnabled = false
         selectedDevice = null
         btnScan.text = "Stop"
-        tvStatus.text = "Scanning (8s)..."
+        tvStatus.text = "Scanning (${scanSeconds}s)..."
         LogManager.logReceiver("Scan started...")
         discoveryManager?.stop()
         discoveryManager = DiscoveryManager(

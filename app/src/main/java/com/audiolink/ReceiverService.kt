@@ -32,7 +32,8 @@ class ReceiverService : Service() {
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification())
         val host = intent?.getStringExtra(EXTRA_HOST)
-        val port = intent?.getIntExtra(EXTRA_PORT, 9999) ?: 9999
+        val port = intent?.getIntExtra(EXTRA_PORT, SettingsManager.getAudioPort(this))
+            ?: SettingsManager.getAudioPort(this)
         if (host.isNullOrBlank()) {
             LogManager.logReceiver("ERROR: No host IP provided — cannot connect")
             stopSelf()
@@ -45,9 +46,11 @@ class ReceiverService : Service() {
     }
 
     private fun startReceiving(host: String, port: Int) {
+        val maxRetries = SettingsManager.getRetryCount(this)
+        val retryDelayMs = SettingsManager.getRetryDelayMs(this)
         Thread {
             var retries = 0
-            while (isRunning && retries < 10) {
+            while (isRunning && retries < maxRetries) {
                 try {
                     LogManager.logReceiver("Connecting to $host:$port (attempt ${retries + 1})...")
                     socket = Socket(host, port)
@@ -60,11 +63,11 @@ class ReceiverService : Service() {
                 } catch (e: Exception) {
                     LogManager.logReceiver("Connection failed: ${e.message}")
                     retries++
-                    if (isRunning) Thread.sleep(2000)
+                    if (isRunning) Thread.sleep(retryDelayMs)
                 }
             }
-            if (retries >= 10) {
-                LogManager.logReceiver("ERROR: Could not connect after 10 attempts")
+            if (retries >= maxRetries) {
+                LogManager.logReceiver("ERROR: Could not connect after $maxRetries attempts")
                 stopSelf()
             }
         }.start()

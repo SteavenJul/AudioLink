@@ -28,7 +28,6 @@ class SenderService : Service() {
         const val SAMPLE_RATE = 44100
         const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_STEREO
         const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-        const val PORT = 9999
     }
 
     private var isRunning = false
@@ -37,7 +36,6 @@ class SenderService : Service() {
     private var mediaProjection: MediaProjection? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Build notification FIRST before anything else
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification())
 
@@ -54,8 +52,6 @@ class SenderService : Service() {
             @Suppress("DEPRECATION")
             intent.getParcelableExtra<Intent>(EXTRA_DATA)
         }
-
-        LogManager.logSender("resultCode=$resultCode data=${data != null}")
 
         if (resultCode == Int.MIN_VALUE || data == null) {
             LogManager.logSender("ERROR: Missing projection data (code=$resultCode)")
@@ -79,11 +75,12 @@ class SenderService : Service() {
     }
 
     private fun startServer() {
+        val port = SettingsManager.getAudioPort(this)
         Thread {
             try {
-                serverSocket = ServerSocket(PORT)
-                LogManager.logSender("Server listening on port $PORT")
-                LogManager.logSender("Waiting for Oppo A52 to connect...")
+                serverSocket = ServerSocket(port)
+                LogManager.logSender("Server listening on port $port")
+                LogManager.logSender("Waiting for receiver to connect...")
                 while (isRunning) {
                     val client = serverSocket!!.accept()
                     LogManager.logSender("Receiver connected: ${client.inetAddress.hostAddress}")
@@ -96,6 +93,7 @@ class SenderService : Service() {
     }
 
     private fun handleClient(socket: Socket) {
+        val bufferMultiplier = SettingsManager.getBufferMultiplier(this)
         Thread {
             try {
                 socket.tcpNoDelay = true
@@ -110,7 +108,7 @@ class SenderService : Service() {
 
                 val bufferSize = AudioRecord.getMinBufferSize(
                     SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT
-                ) * 2
+                ) * bufferMultiplier
 
                 audioRecord = AudioRecord.Builder()
                     .setAudioFormat(
@@ -126,7 +124,7 @@ class SenderService : Service() {
 
                 val buffer = ByteArray(bufferSize)
                 audioRecord?.startRecording()
-                LogManager.logSender("Audio capture started! Streaming...")
+                LogManager.logSender("Audio capture started! Streaming... (buffer x$bufferMultiplier)")
 
                 while (isRunning && socket.isConnected) {
                     val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: 0

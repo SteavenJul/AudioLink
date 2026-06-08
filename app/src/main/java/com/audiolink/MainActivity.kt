@@ -18,21 +18,25 @@ class MainActivity : AppCompatActivity() {
         val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
 
         viewPager.adapter = object : FragmentStateAdapter(this) {
-            override fun getItemCount() = 2
-            override fun createFragment(position: Int): Fragment {
-                return if (position == 0) SenderFragment() else ReceiverFragment()
+            override fun getItemCount() = 3
+            override fun createFragment(position: Int): Fragment = when (position) {
+                0 -> SenderFragment()
+                1 -> ReceiverFragment()
+                else -> SettingsFragment()
             }
         }
 
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-            tab.text = if (position == 0) "🎙 Server" else "🎧 Receiver"
+            tab.text = when (position) {
+                0 -> "🎙 Server"
+                1 -> "🎧 Receiver"
+                else -> "⚙️ Settings"
+            }
         }.attach()
 
-        // Keep screen on while app is open
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
-    // Don't finish on back press — minimize instead
     override fun onBackPressed() {
         moveTaskToBack(true)
     }
