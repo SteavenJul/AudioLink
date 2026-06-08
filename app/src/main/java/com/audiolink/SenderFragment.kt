@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -32,19 +33,24 @@ class SenderFragment : Fragment() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            LogManager.logSender("MediaProjection permission granted!")
-            LogManager.logSender("Starting audio capture...")
-            val intent = Intent(requireContext(), SenderService::class.java).apply {
-                putExtra(SenderService.EXTRA_RESULT_CODE, result.resultCode)
-                putExtra(SenderService.EXTRA_DATA, result.data)
+            LogManager.logSender("MediaProjection granted! Starting service...")
+
+            val serviceIntent = Intent(requireContext(), SenderService::class.java)
+            serviceIntent.putExtra(SenderService.EXTRA_RESULT_CODE, result.resultCode)
+            serviceIntent.putExtra(SenderService.EXTRA_DATA, result.data!!)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                requireContext().startForegroundService(serviceIntent)
+            } else {
+                requireContext().startService(serviceIntent)
             }
-            requireContext().startForegroundService(intent)
+
             isRunning = true
             btnToggle.text = "Stop Server"
             tvStatus.text = "Streaming phone audio..."
         } else {
-            LogManager.logSender("MediaProjection permission denied!")
-            tvStatus.text = "Permission denied — tap Start to try again"
+            LogManager.logSender("MediaProjection denied or cancelled")
+            tvStatus.text = "Permission denied — try again"
         }
     }
 
@@ -121,17 +127,15 @@ class SenderFragment : Fragment() {
     }
 
     private fun checkPermissions() {
-        val missing = mutableListOf<String>()
-        if (!hasPermission(Manifest.permission.RECORD_AUDIO))
-            missing.add(Manifest.permission.RECORD_AUDIO)
-        if (missing.isNotEmpty()) {
-            LogManager.logSender("Requesting permissions: $missing")
-            ActivityCompat.requestPermissions(requireActivity(), missing.toTypedArray(), 200)
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            LogManager.logSender("Requesting RECORD_AUDIO permission...")
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(Manifest.permission.RECORD_AUDIO), 200
+            )
         } else {
             LogManager.logSender("All permissions granted")
         }
     }
-
-    private fun hasPermission(p: String) =
-        ContextCompat.checkSelfPermission(requireContext(), p) == PackageManager.PERMISSION_GRANTED
 }
