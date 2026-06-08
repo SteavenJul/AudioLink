@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
 import android.os.IBinder
+import android.os.Process
 import androidx.core.app.NotificationCompat
 import java.io.DataInputStream
 import java.net.Socket
@@ -22,6 +23,7 @@ class ReceiverService : Service() {
         const val EXTRA_PORT = "PORT"
         private const val CHANNEL_ID = "receiver_channel"
         private const val NOTIF_ID = 2
+        const val CONFIG_HEADER = 0xABCD1234.toInt()
     }
 
     private var isRunning = false
@@ -48,12 +50,8 @@ class ReceiverService : Service() {
     }
 
     private fun startReceiving(host: String, port: Int) {
-        val maxRetries  = SettingsManager.getRetryCount(this)
-        val retryDelay  = SettingsManager.getRetryDelayMs(this)
-        val sampleRate  = SettingsManager.getSampleRate(this)
-        val bufferSize  = SettingsManager.getBufferSize(this)
-
-        LogManager.logReceiver("Config: ${sampleRate}Hz, ${bufferSize}B buffer")
+        val maxRetries = SettingsManager.getRetryCount(this)
+        val retryDelay = SettingsManager.getRetryDelayMs(this)
 
         Thread {
             var retries = 0
@@ -62,9 +60,8 @@ class ReceiverService : Service() {
                     LogManager.logReceiver("Connecting to $host:$port (attempt ${retries + 1})...")
                     socket = Socket(host, port)
                     socket?.tcpNoDelay = true
-                    socket?.setReceiveBufferSize(bufferSize * 2)
+                    socket?.setReceiveBufferSize(65536)
                     LogManager.logReceiver("Connected!")
-                    setupAudioTrack(sampleRate, bufferSize)
                     receiveAndPlay()
                     retries = 0
                 } catch (e: Exception) {
@@ -80,7 +77,45 @@ class ReceiverService : Service() {
         }.start()
     }
 
-    private fun setupAudioTrack(sampleRate: Int, bufferSize: Int) {
+    private fun receiveAndPlay() {
+        // Boost thread priority for audio
+        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+        try {
+            val inp = DataInputStream(socket!!.getInputStream())
+
+            // Read config from sender
+            val header     = inp.readInt()
+            val sampleRate = inp.readInt()
+            val chunkSize  = inp.readInt()
+
+            if (header != CONFIG_HEADER) {
+                LogManager.logReceiver("ERROR: Bad config header")
+                return
+            }
+
+            LogManager.logReceiver("Config: ${sampleRate}Hz, ${chunkSize}B chunks")
+            setupAudioTrack(sampleRate, chunkSize)
+
+            while (isRunning && socket?.isConnected == true) {
+                val size = inp.readInt()
+                if (size <= 0 || size > 65536) continue
+                val buffer = ByteArray(size)
+                inp.readFully(buffer)
+                // Write immediately — no extra buffering
+                audioTrack?.write(buffer, 0, size)
+            }
+        } catch (e: Exception) {
+            LogManager.logReceiver("Stream ended: ${e.message}")
+        } finally {
+            audioTrack?.stop()
+            audioTrack?.release()
+            audioTrack = null
+            socket?.close()
+            LogManager.logReceiver("Playback stopped")
+        }
+    }
+
+    private fun setupAudioTrack(sampleRate: Int, chunkSize: Int) {
         val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         audioManager.mode = AudioManager.MODE_NORMAL
         audioManager.isSpeakerphoneOn = false
@@ -93,7 +128,9 @@ class ReceiverService : Service() {
             AudioFormat.CHANNEL_OUT_STEREO,
             AudioFormat.ENCODING_PCM_16BIT
         )
-        val actualBuffer = maxOf(bufferSize, minBuffer)
+        // Use minimum possible buffer — just enough to not crash
+        val actualBuffer = maxOf(chunkSize * 2, minBuffer)
+        LogManager.logReceiver("AudioTrack: ${sampleRate}Hz, ${actualBuffer}B buffer")
 
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
@@ -116,36 +153,12 @@ class ReceiverService : Service() {
 
         audioTrack?.setVolume(AudioTrack.getMaxVolume())
         audioTrack?.play()
-        LogManager.logReceiver("Playback ready: ${sampleRate}Hz, ${actualBuffer}B buffer")
-    }
-
-    private fun receiveAndPlay() {
-        try {
-            val inp = DataInputStream(socket!!.getInputStream())
-            LogManager.logReceiver("Receiving stream...")
-            while (isRunning && socket?.isConnected == true) {
-                val size = inp.readInt()
-                if (size <= 0 || size > 65536) continue
-                val buffer = ByteArray(size)
-                inp.readFully(buffer)
-                audioTrack?.write(buffer, 0, size)
-            }
-        } catch (e: Exception) {
-            LogManager.logReceiver("Stream ended: ${e.message}")
-        } finally {
-            audioTrack?.stop()
-            audioTrack?.release()
-            audioTrack = null
-            socket?.close()
-            LogManager.logReceiver("Playback stopped")
-        }
+        LogManager.logReceiver("Audio ready!")
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Audio Receiver", NotificationManager.IMPORTANCE_LOW
-            )
+            val channel = NotificationChannel(CHANNEL_ID, "Audio Receiver", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
@@ -156,8 +169,7 @@ class ReceiverService : Service() {
             .setContentText("Playing audio from sender")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
+            .setOngoing(true).build()
     }
 
     override fun onDestroy() {

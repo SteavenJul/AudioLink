@@ -13,6 +13,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
+import android.os.Process
 import androidx.core.app.NotificationCompat
 import java.io.DataOutputStream
 import java.net.ServerSocket
@@ -38,11 +39,7 @@ class SenderService : Service() {
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification())
 
-        if (intent == null) {
-            LogManager.logSender("ERROR: Intent is null")
-            stopSelf()
-            return START_NOT_STICKY
-        }
+        if (intent == null) { stopSelf(); return START_NOT_STICKY }
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
         val data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -76,18 +73,25 @@ class SenderService : Service() {
     private fun startServer() {
         val port = SettingsManager.getAudioPort(this)
         val sampleRate = SettingsManager.getSampleRate(this)
-        val bufferSize = SettingsManager.getBufferSize(this)
-        LogManager.logSender("Config: ${sampleRate}Hz, ${bufferSize}B buffer, port $port")
+
+        // Absolute minimum buffer — just enough for AudioRecord to work
+        val minBuffer = AudioRecord.getMinBufferSize(
+            sampleRate, CHANNEL_CONFIG, AUDIO_FORMAT
+        )
+        // Read in tiny chunks — 10ms worth of audio at a time
+        val chunkSize = (sampleRate * 2 * 2 * 10) / 1000
+        LogManager.logSender("Sample rate: ${sampleRate}Hz")
+        LogManager.logSender("Min buffer: ${minBuffer}B")
+        LogManager.logSender("Chunk size: ${chunkSize}B (10ms)")
 
         Thread {
             try {
                 serverSocket = ServerSocket(port)
-                LogManager.logSender("Server listening on port $port")
-                LogManager.logSender("Waiting for receiver...")
+                LogManager.logSender("Listening on port $port...")
                 while (isRunning) {
                     val client = serverSocket!!.accept()
                     LogManager.logSender("Receiver connected: ${client.inetAddress.hostAddress}")
-                    handleClient(client, sampleRate, bufferSize)
+                    handleClient(client, sampleRate, minBuffer, chunkSize)
                 }
             } catch (e: Exception) {
                 if (isRunning) LogManager.logSender("Server error: ${e.message}")
@@ -95,24 +99,27 @@ class SenderService : Service() {
         }.start()
     }
 
-    private fun handleClient(socket: Socket, sampleRate: Int, bufferSize: Int) {
+    private fun handleClient(socket: Socket, sampleRate: Int, minBuffer: Int, chunkSize: Int) {
         Thread {
+            // Boost thread priority for audio
+            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
             try {
                 socket.tcpNoDelay = true
-                socket.setSendBufferSize(bufferSize * 2)
+                socket.setSendBufferSize(chunkSize * 2)
                 val out = DataOutputStream(socket.getOutputStream())
+
+                // Send config to receiver
+                out.writeInt(ReceiverService.CONFIG_HEADER)
+                out.writeInt(sampleRate)
+                out.writeInt(chunkSize)
+                out.flush()
+                LogManager.logSender("Config sent: ${sampleRate}Hz, ${chunkSize}B chunks")
 
                 val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection!!)
                     .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
                     .addMatchingUsage(AudioAttributes.USAGE_GAME)
                     .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
                     .build()
-
-                // Use settings buffer size directly
-                val minBuffer = AudioRecord.getMinBufferSize(
-                    sampleRate, CHANNEL_CONFIG, AUDIO_FORMAT
-                )
-                val actualBuffer = maxOf(bufferSize, minBuffer)
 
                 audioRecord = AudioRecord.Builder()
                     .setAudioFormat(
@@ -122,16 +129,16 @@ class SenderService : Service() {
                             .setChannelMask(CHANNEL_CONFIG)
                             .build()
                     )
-                    .setBufferSizeInBytes(actualBuffer)
+                    .setBufferSizeInBytes(minBuffer)
                     .setAudioPlaybackCaptureConfig(config)
                     .build()
 
-                val buffer = ByteArray(actualBuffer)
+                val buffer = ByteArray(chunkSize)
                 audioRecord?.startRecording()
-                LogManager.logSender("Streaming at ${sampleRate}Hz, ${actualBuffer}B chunks")
+                LogManager.logSender("Streaming! Chunk=${chunkSize}B, Rate=${sampleRate}Hz")
 
                 while (isRunning && socket.isConnected) {
-                    val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                    val bytesRead = audioRecord?.read(buffer, 0, chunkSize) ?: 0
                     if (bytesRead > 0) {
                         out.writeInt(bytesRead)
                         out.write(buffer, 0, bytesRead)
@@ -152,9 +159,7 @@ class SenderService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Audio Sender", NotificationManager.IMPORTANCE_LOW
-            )
+            val channel = NotificationChannel(CHANNEL_ID, "Audio Sender", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
@@ -165,8 +170,7 @@ class SenderService : Service() {
             .setContentText("Streaming phone audio...")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
+            .setOngoing(true).build()
     }
 
     override fun onDestroy() {

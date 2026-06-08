@@ -27,63 +27,50 @@
             android:orientation="horizontal"
             android:layout_marginBottom="4dp">
 
-            <Button
-                android:id="@+id/btnPresetGame"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:text="🎮 Game"
-                android:textSize="13sp"
-                android:backgroundTint="#1E1E1E"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="6dp" />
+            <Button android:id="@+id/btnPresetGame"
+                android:layout_width="0dp" android:layout_height="52dp"
+                android:layout_weight="1" android:text="🎮 Game"
+                android:textSize="13sp" android:backgroundTint="#1E1E1E"
+                android:textColor="#FFFFFF" android:layout_marginEnd="6dp"/>
 
-            <Button
-                android:id="@+id/btnPresetMovie"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:text="🎬 Movie"
-                android:textSize="13sp"
-                android:backgroundTint="#1E1E1E"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="6dp" />
+            <Button android:id="@+id/btnPresetMovie"
+                android:layout_width="0dp" android:layout_height="52dp"
+                android:layout_weight="1" android:text="🎬 Movie"
+                android:textSize="13sp" android:backgroundTint="#1E1E1E"
+                android:textColor="#FFFFFF" android:layout_marginEnd="6dp"/>
 
-            <Button
-                android:id="@+id/btnPresetMusic"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:text="🎵 Music"
-                android:textSize="13sp"
-                android:backgroundTint="#1E1E1E"
-                android:textColor="#FFFFFF" />
+            <Button android:id="@+id/btnPresetMusic"
+                android:layout_width="0dp" android:layout_height="52dp"
+                android:layout_weight="1" android:text="🎵 Music"
+                android:textSize="13sp" android:backgroundTint="#1E1E1E"
+                android:textColor="#FFFFFF"/>
 
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvPresetDesc"
+        <TextView android:id="@+id/tvPresetDesc"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Tap a preset to auto-configure"
-            android:textSize="12sp"
-            android:textColor="#888888"
-            android:layout_marginBottom="20dp"
-            android:layout_marginTop="4dp" />
+            android:textSize="12sp" android:textColor="#888888"
+            android:layout_marginBottom="20dp" android:layout_marginTop="4dp"/>
 
-        <!-- SAMPLE RATE -->
+        <!-- SENDER SETTINGS -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="SAMPLE RATE"
-            android:textSize="11sp"
-            android:textColor="#1565C0"
-            android:textStyle="bold"
-            android:letterSpacing="0.2"
-            android:layout_marginBottom="8dp" />
+            android:text="SENDER SETTINGS"
+            android:textSize="11sp" android:textColor="#1565C0"
+            android:textStyle="bold" android:letterSpacing="0.2"
+            android:layout_marginBottom="4dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Set this on the Poco X7 Pro"
+            android:textSize="11sp" android:textColor="#888888"
+            android:layout_marginBottom="8dp"/>
 
         <LinearLayout
-            android:id="@+id/rgSampleRate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -91,49 +78,49 @@
             android:padding="12dp"
             android:layout_marginBottom="20dp">
 
-            <RadioGroup
-                android:id="@+id/radioSampleRate"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sample Rate (audio quality)"
+                android:textSize="12sp" android:textColor="#888888"
+                android:layout_marginBottom="8dp"/>
+
+            <RadioGroup android:id="@+id/radioSampleRate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
                 <RadioButton android:id="@+id/rb8000"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="8000 Hz — Phone Call (lowest latency)"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
                 <RadioButton android:id="@+id/rb11025"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="11025 Hz — Voice"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
                 <RadioButton android:id="@+id/rb16000"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="16000 Hz — Low"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
                 <RadioButton android:id="@+id/rb22050"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="22050 Hz — Game ⚡"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
                 <RadioButton android:id="@+id/rb44100"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="44100 Hz — Standard 🎬"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
                 <RadioButton android:id="@+id/rb48000"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="48000 Hz — Studio 🎵"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp"/>
@@ -141,24 +128,21 @@
             </RadioGroup>
         </LinearLayout>
 
-        <!-- BUFFER SIZE -->
+        <!-- RECEIVER SETTINGS -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="BUFFER SIZE"
-            android:textSize="11sp"
-            android:textColor="#1565C0"
-            android:textStyle="bold"
-            android:letterSpacing="0.2"
-            android:layout_marginBottom="4dp" />
+            android:text="RECEIVER SETTINGS"
+            android:textSize="11sp" android:textColor="#1565C0"
+            android:textStyle="bold" android:letterSpacing="0.2"
+            android:layout_marginBottom="4dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Smaller = less delay. Larger = smoother audio."
-            android:textSize="11sp"
-            android:textColor="#888888"
-            android:layout_marginBottom="8dp" />
+            android:text="Set this on the Oppo A52"
+            android:textSize="11sp" android:textColor="#888888"
+            android:layout_marginBottom="8dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -168,138 +152,75 @@
             android:padding="12dp"
             android:layout_marginBottom="20dp">
 
-            <RadioGroup
-                android:id="@+id/radioBufferSize"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Buffer Size (delay vs smoothness)"
+                android:textSize="12sp" android:textColor="#888888"
+                android:layout_marginBottom="8dp"/>
+
+            <RadioGroup android:id="@+id/radioBufferMs"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
-                <RadioButton android:id="@+id/rb256"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="256 B — Ultra Low (may stutter)"
+                <RadioButton android:id="@+id/rb0ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="0ms — No buffer (will be choppy)"
+                    android:textColor="#FF5252" android:buttonTint="#1565C0"
+                    android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
+
+                <RadioButton android:id="@+id/rb5ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="5ms — Experimental"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
-                <RadioButton android:id="@+id/rb512"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="512 B — Minimum ⚡"
+                <RadioButton android:id="@+id/rb10ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="10ms — Ultra Low ⚡"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
-                <RadioButton android:id="@+id/rb1024"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="1024 B — Low"
+                <RadioButton android:id="@+id/rb20ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="20ms — Game"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
-                <RadioButton android:id="@+id/rb2048"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="2048 B — Balanced 🎬"
+                <RadioButton android:id="@+id/rb40ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="40ms — Low"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
-                <RadioButton android:id="@+id/rb4096"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="4096 B — Medium 🎵"
+                <RadioButton android:id="@+id/rb80ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="80ms — Movie 🎬"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
-                <RadioButton android:id="@+id/rb8192"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="8192 B — High"
+                <RadioButton android:id="@+id/rb150ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="150ms — Music 🎵"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
 
-                <RadioButton android:id="@+id/rb16384"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="16384 B — Maximum (most stable)"
+                <RadioButton android:id="@+id/rb200ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="200ms — Stable"
+                    android:textColor="#FFFFFF" android:buttonTint="#1565C0"
+                    android:paddingStart="8dp" android:layout_marginBottom="4dp"/>
+
+                <RadioButton android:id="@+id/rb500ms"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="500ms — Maximum stability"
                     android:textColor="#FFFFFF" android:buttonTint="#1565C0"
                     android:paddingStart="8dp"/>
 
             </RadioGroup>
         </LinearLayout>
 
-        <!-- ADVANCED -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ADVANCED"
-            android:textSize="11sp"
-            android:textColor="#1565C0"
-            android:textStyle="bold"
-            android:letterSpacing="0.2"
-            android:layout_marginBottom="8dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#1E1E1E"
-            android:padding="16dp"
-            android:layout_marginBottom="20dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Audio Port"
-                android:textSize="12sp"
-                android:textColor="#888888"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etAudioPort"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="number"
-                android:textColor="#FFFFFF"
-                android:background="#2A2A2A"
-                android:padding="10dp"
-                android:layout_marginBottom="12dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Discovery Port"
-                android:textSize="12sp"
-                android:textColor="#888888"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etDiscoveryPort"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="number"
-                android:textColor="#FFFFFF"
-                android:background="#2A2A2A"
-                android:padding="10dp"
-                android:layout_marginBottom="12dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Scan Timeout (seconds)"
-                android:textSize="12sp"
-                android:textColor="#888888"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etScanTimeout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="number"
-                android:textColor="#FFFFFF"
-                android:background="#2A2A2A"
-                android:padding="10dp" />
-
-        </LinearLayout>
-
-        <!-- CURRENT SETTINGS SUMMARY -->
+        <!-- CURRENT CONFIG SUMMARY -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -312,19 +233,60 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Current Config"
-                android:textSize="11sp"
-                android:textColor="#888888"
-                android:layout_marginBottom="6dp" />
+                android:textSize="11sp" android:textColor="#888888"
+                android:layout_marginBottom="6dp"/>
 
-            <TextView
-                android:id="@+id/tvCurrentConfig"
+            <TextView android:id="@+id/tvCurrentConfig"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Sample Rate: 44100 Hz\nBuffer: 2048 B\nEst. Latency: ~150ms"
-                android:textSize="13sp"
-                android:textColor="#4CAF50"
-                android:fontFamily="monospace"
-                android:lineSpacingExtra="4dp" />
+                android:text=""
+                android:textSize="13sp" android:textColor="#4CAF50"
+                android:fontFamily="monospace" android:lineSpacingExtra="4dp"/>
+
+        </LinearLayout>
+
+        <!-- ADVANCED -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ADVANCED"
+            android:textSize="11sp" android:textColor="#1565C0"
+            android:textStyle="bold" android:letterSpacing="0.2"
+            android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1E1E1E"
+            android:padding="16dp"
+            android:layout_marginBottom="20dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Audio Port" android:textSize="12sp"
+                android:textColor="#888888" android:layout_marginBottom="4dp"/>
+            <EditText android:id="@+id/etAudioPort"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:inputType="number" android:textColor="#FFFFFF"
+                android:background="#2A2A2A" android:padding="10dp"
+                android:layout_marginBottom="12dp"/>
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Discovery Port" android:textSize="12sp"
+                android:textColor="#888888" android:layout_marginBottom="4dp"/>
+            <EditText android:id="@+id/etDiscoveryPort"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:inputType="number" android:textColor="#FFFFFF"
+                android:background="#2A2A2A" android:padding="10dp"
+                android:layout_marginBottom="12dp"/>
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Scan Timeout (seconds)" android:textSize="12sp"
+                android:textColor="#888888" android:layout_marginBottom="4dp"/>
+            <EditText android:id="@+id/etScanTimeout"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:inputType="number" android:textColor="#FFFFFF"
+                android:background="#2A2A2A" android:padding="10dp"/>
 
         </LinearLayout>
 
@@ -333,41 +295,27 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="32dp">
+            android:layout_marginBottom="16dp">
 
-            <Button
-                android:id="@+id/btnSaveSettings"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:text="Save"
-                android:textSize="16sp"
-                android:backgroundTint="#1565C0"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="8dp" />
+            <Button android:id="@+id/btnSaveSettings"
+                android:layout_width="0dp" android:layout_height="52dp"
+                android:layout_weight="1" android:text="Save"
+                android:textSize="16sp" android:backgroundTint="#1565C0"
+                android:textColor="#FFFFFF" android:layout_marginEnd="8dp"/>
 
-            <Button
-                android:id="@+id/btnResetSettings"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:text="Reset"
-                android:textSize="16sp"
-                android:backgroundTint="#333333"
-                android:textColor="#FFFFFF" />
+            <Button android:id="@+id/btnResetSettings"
+                android:layout_width="0dp" android:layout_height="52dp"
+                android:layout_weight="1" android:text="Reset"
+                android:textSize="16sp" android:backgroundTint="#333333"
+                android:textColor="#FFFFFF"/>
 
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvSettingsSaved"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="✓ Settings saved"
-            android:textSize="14sp"
-            android:textColor="#4CAF50"
-            android:gravity="center"
-            android:visibility="gone"
-            android:layout_marginBottom="16dp" />
+        <TextView android:id="@+id/tvSettingsSaved"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="✓ Settings saved" android:textSize="14sp"
+            android:textColor="#4CAF50" android:gravity="center"
+            android:visibility="gone" android:layout_marginBottom="32dp"/>
 
     </LinearLayout>
 </ScrollView>
