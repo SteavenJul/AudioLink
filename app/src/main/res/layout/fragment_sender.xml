@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SERVER"
+        android:textSize="11sp"
+        android:textColor="#1565C0"
+        android:textStyle="bold"
+        android:letterSpacing="0.2"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#1E1E1E"
+        android:padding="16dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Device Info"
+            android:textSize="11sp"
+            android:textColor="#888888"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:id="@+id/tvIpAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="IP: detecting..."
+            android:textSize="14sp"
+            android:textColor="#4CAF50" />
+
+        <TextView
+            android:id="@+id/tvPort"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Port: 9999"
+            android:textSize="14sp"
+            android:textColor="#4CAF50"
+            android:layout_marginTop="4dp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#1E1E1E"
+        android:padding="16dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Status"
+            android:textSize="11sp"
+            android:textColor="#888888"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:id="@+id/tvSenderStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Idle"
+            android:textSize="15sp"
+            android:textColor="#FFFFFF" />
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnSenderToggle"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Start Server"
+        android:textSize="16sp"
+        android:backgroundTint="#1565C0"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Debug Log"
+        android:textSize="11sp"
+        android:textColor="#888888"
+        android:textStyle="bold"
+        android:layout_marginBottom="6dp" />
+
+    <ScrollView
+        android:id="@+id/scrollSenderLog"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#0D0D0D"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tvSenderLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="11sp"
+            android:textColor="#00FF41"
+            android:fontFamily="monospace"
+            android:lineSpacingExtra="3dp" />
+
+    </ScrollView>
+
+</LinearLayout>
