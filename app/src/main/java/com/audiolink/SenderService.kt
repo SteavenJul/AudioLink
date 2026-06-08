@@ -25,9 +25,8 @@ class SenderService : Service() {
         const val EXTRA_DATA = "DATA"
         private const val CHANNEL_ID = "sender_channel"
         private const val NOTIF_ID = 1
-        const val SAMPLE_RATE = 44100
-        const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_STEREO
-        const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
+        val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_STEREO
+        val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
     }
 
     private var isRunning = false
@@ -54,17 +53,17 @@ class SenderService : Service() {
         }
 
         if (resultCode == Int.MIN_VALUE || data == null) {
-            LogManager.logSender("ERROR: Missing projection data (code=$resultCode)")
+            LogManager.logSender("ERROR: Missing projection data")
             stopSelf()
             return START_NOT_STICKY
         }
 
         try {
-            val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            mediaProjection = projectionManager.getMediaProjection(resultCode, data)
-            LogManager.logSender("MediaProjection created successfully")
+            val mgr = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            mediaProjection = mgr.getMediaProjection(resultCode, data)
+            LogManager.logSender("MediaProjection ready")
         } catch (e: Exception) {
-            LogManager.logSender("ERROR creating MediaProjection: ${e.message}")
+            LogManager.logSender("ERROR: ${e.message}")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -76,15 +75,19 @@ class SenderService : Service() {
 
     private fun startServer() {
         val port = SettingsManager.getAudioPort(this)
+        val sampleRate = SettingsManager.getSampleRate(this)
+        val bufferSize = SettingsManager.getBufferSize(this)
+        LogManager.logSender("Config: ${sampleRate}Hz, ${bufferSize}B buffer, port $port")
+
         Thread {
             try {
                 serverSocket = ServerSocket(port)
                 LogManager.logSender("Server listening on port $port")
-                LogManager.logSender("Waiting for receiver to connect...")
+                LogManager.logSender("Waiting for receiver...")
                 while (isRunning) {
                     val client = serverSocket!!.accept()
                     LogManager.logSender("Receiver connected: ${client.inetAddress.hostAddress}")
-                    handleClient(client)
+                    handleClient(client, sampleRate, bufferSize)
                 }
             } catch (e: Exception) {
                 if (isRunning) LogManager.logSender("Server error: ${e.message}")
@@ -92,12 +95,11 @@ class SenderService : Service() {
         }.start()
     }
 
-    private fun handleClient(socket: Socket) {
-        val bufferMultiplier = SettingsManager.getBufferMultiplier(this)
+    private fun handleClient(socket: Socket, sampleRate: Int, bufferSize: Int) {
         Thread {
             try {
                 socket.tcpNoDelay = true
-                socket.setSendBufferSize(16384)
+                socket.setSendBufferSize(bufferSize * 2)
                 val out = DataOutputStream(socket.getOutputStream())
 
                 val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection!!)
@@ -106,25 +108,27 @@ class SenderService : Service() {
                     .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
                     .build()
 
-                val bufferSize = AudioRecord.getMinBufferSize(
-                    SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT
-                ) * bufferMultiplier
+                // Use settings buffer size directly
+                val minBuffer = AudioRecord.getMinBufferSize(
+                    sampleRate, CHANNEL_CONFIG, AUDIO_FORMAT
+                )
+                val actualBuffer = maxOf(bufferSize, minBuffer)
 
                 audioRecord = AudioRecord.Builder()
                     .setAudioFormat(
                         AudioFormat.Builder()
-                            .setSampleRate(SAMPLE_RATE)
+                            .setSampleRate(sampleRate)
                             .setEncoding(AUDIO_FORMAT)
                             .setChannelMask(CHANNEL_CONFIG)
                             .build()
                     )
-                    .setBufferSizeInBytes(bufferSize)
+                    .setBufferSizeInBytes(actualBuffer)
                     .setAudioPlaybackCaptureConfig(config)
                     .build()
 
-                val buffer = ByteArray(bufferSize)
+                val buffer = ByteArray(actualBuffer)
                 audioRecord?.startRecording()
-                LogManager.logSender("Audio capture started! Streaming... (buffer x$bufferMultiplier)")
+                LogManager.logSender("Streaming at ${sampleRate}Hz, ${actualBuffer}B chunks")
 
                 while (isRunning && socket.isConnected) {
                     val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: 0
@@ -172,7 +176,7 @@ class SenderService : Service() {
         audioRecord?.release()
         mediaProjection?.stop()
         serverSocket?.close()
-        LogManager.logSender("Sender service stopped")
+        LogManager.logSender("Sender stopped")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

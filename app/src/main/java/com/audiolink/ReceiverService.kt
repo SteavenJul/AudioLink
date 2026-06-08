@@ -31,23 +31,30 @@ class ReceiverService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification())
+
         val host = intent?.getStringExtra(EXTRA_HOST)
         val port = intent?.getIntExtra(EXTRA_PORT, SettingsManager.getAudioPort(this))
             ?: SettingsManager.getAudioPort(this)
+
         if (host.isNullOrBlank()) {
-            LogManager.logReceiver("ERROR: No host IP provided — cannot connect")
+            LogManager.logReceiver("ERROR: No host IP")
             stopSelf()
             return START_NOT_STICKY
         }
-        LogManager.logReceiver("Starting receiver → $host:$port")
+
         isRunning = true
         startReceiving(host, port)
         return START_STICKY
     }
 
     private fun startReceiving(host: String, port: Int) {
-        val maxRetries = SettingsManager.getRetryCount(this)
-        val retryDelayMs = SettingsManager.getRetryDelayMs(this)
+        val maxRetries  = SettingsManager.getRetryCount(this)
+        val retryDelay  = SettingsManager.getRetryDelayMs(this)
+        val sampleRate  = SettingsManager.getSampleRate(this)
+        val bufferSize  = SettingsManager.getBufferSize(this)
+
+        LogManager.logReceiver("Config: ${sampleRate}Hz, ${bufferSize}B buffer")
+
         Thread {
             var retries = 0
             while (isRunning && retries < maxRetries) {
@@ -55,15 +62,15 @@ class ReceiverService : Service() {
                     LogManager.logReceiver("Connecting to $host:$port (attempt ${retries + 1})...")
                     socket = Socket(host, port)
                     socket?.tcpNoDelay = true
-                    socket?.setReceiveBufferSize(16384)
-                    LogManager.logReceiver("Connected! Starting playback...")
-                    setupAudioTrack()
+                    socket?.setReceiveBufferSize(bufferSize * 2)
+                    LogManager.logReceiver("Connected!")
+                    setupAudioTrack(sampleRate, bufferSize)
                     receiveAndPlay()
                     retries = 0
                 } catch (e: Exception) {
-                    LogManager.logReceiver("Connection failed: ${e.message}")
+                    LogManager.logReceiver("Failed: ${e.message}")
                     retries++
-                    if (isRunning) Thread.sleep(retryDelayMs)
+                    if (isRunning) Thread.sleep(retryDelay)
                 }
             }
             if (retries >= maxRetries) {
@@ -73,18 +80,21 @@ class ReceiverService : Service() {
         }.start()
     }
 
-    private fun setupAudioTrack() {
+    private fun setupAudioTrack(sampleRate: Int, bufferSize: Int) {
         val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         audioManager.mode = AudioManager.MODE_NORMAL
         audioManager.isSpeakerphoneOn = false
         audioManager.isBluetoothScoOn = false
         val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVol, 0)
-        val bufferSize = AudioTrack.getMinBufferSize(
-            SenderService.SAMPLE_RATE,
+
+        val minBuffer = AudioTrack.getMinBufferSize(
+            sampleRate,
             AudioFormat.CHANNEL_OUT_STEREO,
             AudioFormat.ENCODING_PCM_16BIT
-        ) * 4
+        )
+        val actualBuffer = maxOf(bufferSize, minBuffer)
+
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -95,23 +105,24 @@ class ReceiverService : Service() {
             )
             .setAudioFormat(
                 AudioFormat.Builder()
-                    .setSampleRate(SenderService.SAMPLE_RATE)
+                    .setSampleRate(sampleRate)
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
                     .build()
             )
-            .setBufferSizeInBytes(bufferSize)
+            .setBufferSizeInBytes(actualBuffer)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+
         audioTrack?.setVolume(AudioTrack.getMaxVolume())
         audioTrack?.play()
-        LogManager.logReceiver("Audio ready — playing to earbuds at max volume")
+        LogManager.logReceiver("Playback ready: ${sampleRate}Hz, ${actualBuffer}B buffer")
     }
 
     private fun receiveAndPlay() {
         try {
             val inp = DataInputStream(socket!!.getInputStream())
-            LogManager.logReceiver("Receiving audio stream...")
+            LogManager.logReceiver("Receiving stream...")
             while (isRunning && socket?.isConnected == true) {
                 val size = inp.readInt()
                 if (size <= 0 || size > 65536) continue
@@ -155,7 +166,7 @@ class ReceiverService : Service() {
         audioTrack?.stop()
         audioTrack?.release()
         socket?.close()
-        LogManager.logReceiver("Receiver service stopped")
+        LogManager.logReceiver("Receiver stopped")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
