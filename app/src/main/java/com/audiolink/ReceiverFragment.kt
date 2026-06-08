@@ -23,6 +23,7 @@ class ReceiverFragment : Fragment() {
     private lateinit var deviceAdapter: DeviceAdapter
     private var selectedDevice: DiscoveryManager.Device? = null
     private var isConnected = false
+    private var discoveryManager: DiscoveryManager? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -58,28 +59,12 @@ class ReceiverFragment : Fragment() {
         tvStatus.text = "Ready — tap Scan to find devices"
 
         btnScan.setOnClickListener {
-            if (!isConnected) {
-                deviceAdapter.clear()
-                btnConnect.isEnabled = false
-                selectedDevice = null
-                tvStatus.text = "Scanning... (Phase 6 will add real discovery)"
-                LogManager.logReceiver("Scanning network...")
-
-                // Temp: add manual entry for testing
-                val testDevice = DiscoveryManager.Device(
-                    name = "Poco X7 Pro",
-                    ip = "192.168.43.1",
-                    port = 9999
-                )
-                deviceAdapter.addDevice(testDevice)
-                LogManager.logReceiver("Found: ${testDevice.name} at ${testDevice.ip}")
-                tvStatus.text = "Found device — tap to select then Connect"
-            }
+            if (!isConnected) startScan() else stopScan()
         }
 
         btnConnect.setOnClickListener {
             if (!isConnected) {
-                selectedDevice?.let { device -> connectTo(device) }
+                selectedDevice?.let { connectTo(it) }
             } else {
                 disconnect()
             }
@@ -88,12 +73,46 @@ class ReceiverFragment : Fragment() {
         LogManager.logReceiver("Receiver tab ready")
     }
 
+    private fun startScan() {
+        deviceAdapter.clear()
+        btnConnect.isEnabled = false
+        selectedDevice = null
+        tvStatus.text = "Scanning for senders..."
+        btnScan.text = "Stop Scan"
+        LogManager.logReceiver("Starting real UDP scan...")
+
+        discoveryManager = DiscoveryManager(
+            context = requireContext(),
+            onDeviceFound = { device ->
+                activity?.runOnUiThread {
+                    deviceAdapter.addDevice(device)
+                    tvStatus.text = "Found ${deviceAdapter.itemCount} device(s) — tap to select"
+                    LogManager.logReceiver("Found: ${device.name} at ${device.ip}:${device.port}")
+                }
+            },
+            onLog = { message ->
+                LogManager.logReceiver(message)
+            }
+        )
+        discoveryManager?.startListening()
+    }
+
+    private fun stopScan() {
+        discoveryManager?.stopListening()
+        discoveryManager = null
+        btnScan.text = "Scan"
+        LogManager.logReceiver("Scan stopped")
+    }
+
     private fun connectTo(device: DiscoveryManager.Device) {
+        stopScan()
         LogManager.logReceiver("Connecting to ${device.ip}:${device.port}...")
-        tvStatus.text = "Connecting..."
+        tvStatus.text = "Connecting to ${device.name}..."
         btnConnect.text = "Disconnect"
         btnConnect.backgroundTintList =
-            android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#C62828"))
+            android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#C62828")
+            )
         isConnected = true
 
         val intent = Intent(requireContext(), ReceiverService::class.java).apply {
@@ -110,9 +129,16 @@ class ReceiverFragment : Fragment() {
         btnConnect.text = "Connect"
         btnConnect.isEnabled = false
         btnConnect.backgroundTintList =
-            android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#1565C0"))
+            android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#1565C0")
+            )
         tvStatus.text = "Disconnected"
         selectedDevice = null
         LogManager.logReceiver("Disconnected")
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        discoveryManager?.stop()
     }
 }

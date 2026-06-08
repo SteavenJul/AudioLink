@@ -28,6 +28,7 @@ class SenderFragment : Fragment() {
     private lateinit var scrollLog: ScrollView
     private lateinit var btnToggle: Button
     private var isRunning = false
+    private var discoveryManager: DiscoveryManager? = null
 
     private val projectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -45,9 +46,19 @@ class SenderFragment : Fragment() {
                 requireContext().startService(serviceIntent)
             }
 
+            // Start broadcasting so receivers can find us
+            val deviceName = android.os.Build.MODEL
+            discoveryManager = DiscoveryManager(
+                context = requireContext(),
+                onDeviceFound = {},
+                onLog = { LogManager.logSender(it) }
+            )
+            discoveryManager?.startBroadcasting(deviceName)
+            LogManager.logSender("Broadcasting as '$deviceName'")
+
             isRunning = true
             btnToggle.text = "Stop Server"
-            tvStatus.text = "Streaming phone audio..."
+            tvStatus.text = "Streaming — visible to receivers"
         } else {
             LogManager.logSender("MediaProjection denied or cancelled")
             tvStatus.text = "Permission denied — try again"
@@ -94,6 +105,8 @@ class SenderFragment : Fragment() {
     }
 
     private fun stopServer() {
+        discoveryManager?.stopBroadcasting()
+        discoveryManager = null
         requireContext().stopService(Intent(requireContext(), SenderService::class.java))
         isRunning = false
         btnToggle.text = "Start Server"
@@ -137,5 +150,10 @@ class SenderFragment : Fragment() {
         } else {
             LogManager.logSender("All permissions granted")
         }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        discoveryManager?.stopBroadcasting()
     }
 }
