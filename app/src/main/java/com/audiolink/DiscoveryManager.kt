@@ -2,11 +2,9 @@ package com.audiolink
 
 import android.content.Context
 import android.net.wifi.WifiManager
-import android.util.Log
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
-import java.net.MulticastSocket
 
 class DiscoveryManager(
     private val context: Context,
@@ -16,99 +14,88 @@ class DiscoveryManager(
     companion object {
         const val DISCOVERY_PORT = 9998
         const val AUDIO_PORT = 9999
-        const val MULTICAST_GROUP = "224.0.0.251"
         const val BROADCAST_INTERVAL = 2000L
         const val SENDER_TAG = "AUDIOLINK_SENDER"
+        const val SCAN_TIMEOUT = 8000L
     }
 
-    data class Device(
-        val name: String,
-        val ip: String,
-        val port: Int
-    )
+    data class Device(val name: String, val ip: String, val port: Int)
 
     private var isBroadcasting = false
     private var isListening = false
     private var broadcastSocket: DatagramSocket? = null
-    private var listenSocket: MulticastSocket? = null
+    private var listenSocket: DatagramSocket? = null
     private var multicastLock: WifiManager.MulticastLock? = null
 
-    // Call this on the SENDER (Poco X7 Pro)
-    // Announces itself every 2 seconds so receivers can find it
     fun startBroadcasting(deviceName: String) {
         isBroadcasting = true
-        onLog("Discovery: Starting broadcast as '$deviceName'")
-
+        onLog("Broadcasting as '$deviceName'...")
         Thread {
             try {
                 broadcastSocket = DatagramSocket()
                 broadcastSocket?.broadcast = true
                 val message = "$SENDER_TAG|$deviceName|$AUDIO_PORT"
                 val data = message.toByteArray()
-
                 while (isBroadcasting) {
                     try {
-                        // Broadcast to 255.255.255.255 (all devices on network)
                         val packet = DatagramPacket(
                             data, data.size,
                             InetAddress.getByName("255.255.255.255"),
                             DISCOVERY_PORT
                         )
                         broadcastSocket?.send(packet)
-                        onLog("Discovery: Broadcasting presence...")
+                        onLog("Broadcast sent")
                     } catch (e: Exception) {
-                        onLog("Discovery: Broadcast error - ${e.message}")
+                        onLog("Broadcast error: ${e.message}")
                     }
                     Thread.sleep(BROADCAST_INTERVAL)
                 }
             } catch (e: Exception) {
-                onLog("Discovery: Fatal broadcast error - ${e.message}")
+                onLog("Broadcast fatal: ${e.message}")
             }
         }.start()
     }
 
-    // Call this on the RECEIVER (Oppo A52)
-    // Listens for sender broadcasts and reports found devices
-    fun startListening() {
+    fun startListening(onScanComplete: (() -> Unit)? = null) {
         isListening = true
         acquireMulticastLock()
-        onLog("Discovery: Listening for senders on network...")
-
+        onLog("Scanning for ${SCAN_TIMEOUT / 1000}s...")
         Thread {
+            val startTime = System.currentTimeMillis()
             try {
-                listenSocket = MulticastSocket(DISCOVERY_PORT)
-                listenSocket?.soTimeout = 5000
+                listenSocket = DatagramSocket(DISCOVERY_PORT)
+                listenSocket?.soTimeout = 1000
                 val buffer = ByteArray(1024)
-
-                while (isListening) {
+                while (isListening && (System.currentTimeMillis() - startTime) < SCAN_TIMEOUT) {
                     try {
                         val packet = DatagramPacket(buffer, buffer.size)
                         listenSocket?.receive(packet)
-
                         val message = String(packet.data, 0, packet.length)
                         val senderIp = packet.address.hostAddress ?: continue
-
                         if (message.startsWith(SENDER_TAG)) {
                             val parts = message.split("|")
                             if (parts.size >= 3) {
-                                val device = Device(
-                                    name = parts[1],
-                                    ip = senderIp,
-                                    port = parts[2].toIntOrNull() ?: AUDIO_PORT
+                                onDeviceFound(
+                                    Device(
+                                        name = parts[1],
+                                        ip = senderIp,
+                                        port = parts[2].toIntOrNull() ?: AUDIO_PORT
+                                    )
                                 )
-                                onLog("Discovery: Found sender '${device.name}' at ${device.ip}")
-                                onDeviceFound(device)
                             }
                         }
                     } catch (e: Exception) {
-                        // Timeout is normal — just keep listening
-                        if (isListening) onLog("Discovery: Still scanning...")
+                        // Read timeout — normal, keep looping
                     }
                 }
             } catch (e: Exception) {
-                onLog("Discovery: Listen error - ${e.message}")
+                onLog("Scan error: ${e.message}")
             } finally {
+                isListening = false
                 releaseMulticastLock()
+                listenSocket?.close()
+                onLog("Scan complete")
+                onScanComplete?.invoke()
             }
         }.start()
     }
@@ -119,27 +106,23 @@ class DiscoveryManager(
         multicastLock = wifiManager.createMulticastLock("AudioLinkDiscovery")
         multicastLock?.setReferenceCounted(true)
         multicastLock?.acquire()
-        onLog("Discovery: Multicast lock acquired")
     }
 
     private fun releaseMulticastLock() {
-        if (multicastLock?.isHeld == true) {
-            multicastLock?.release()
-            onLog("Discovery: Multicast lock released")
-        }
+        if (multicastLock?.isHeld == true) multicastLock?.release()
     }
 
     fun stopBroadcasting() {
         isBroadcasting = false
         broadcastSocket?.close()
-        onLog("Discovery: Broadcast stopped")
+        onLog("Broadcast stopped")
     }
 
     fun stopListening() {
         isListening = false
         listenSocket?.close()
         releaseMulticastLock()
-        onLog("Discovery: Listening stopped")
+        onLog("Scan stopped manually")
     }
 
     fun stop() {

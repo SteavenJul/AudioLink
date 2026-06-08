@@ -23,6 +23,7 @@ class ReceiverFragment : Fragment() {
     private lateinit var deviceAdapter: DeviceAdapter
     private var selectedDevice: DiscoveryManager.Device? = null
     private var isConnected = false
+    private var isScanning = false
     private var discoveryManager: DiscoveryManager? = null
 
     override fun onCreateView(
@@ -59,7 +60,7 @@ class ReceiverFragment : Fragment() {
         tvStatus.text = "Ready — tap Scan to find devices"
 
         btnScan.setOnClickListener {
-            if (!isConnected) startScan() else stopScan()
+            if (!isScanning) startScan() else stopScan()
         }
 
         btnConnect.setOnClickListener {
@@ -74,34 +75,46 @@ class ReceiverFragment : Fragment() {
     }
 
     private fun startScan() {
+        isScanning = true
         deviceAdapter.clear()
         btnConnect.isEnabled = false
         selectedDevice = null
-        tvStatus.text = "Scanning for senders..."
-        btnScan.text = "Stop Scan"
-        LogManager.logReceiver("Starting real UDP scan...")
+        btnScan.text = "Stop"
+        tvStatus.text = "Scanning (8s)..."
+        LogManager.logReceiver("Scan started...")
 
+        discoveryManager?.stop()
         discoveryManager = DiscoveryManager(
             context = requireContext(),
             onDeviceFound = { device ->
                 activity?.runOnUiThread {
                     deviceAdapter.addDevice(device)
                     tvStatus.text = "Found ${deviceAdapter.itemCount} device(s) — tap to select"
-                    LogManager.logReceiver("Found: ${device.name} at ${device.ip}:${device.port}")
                 }
+                LogManager.logReceiver("Found: ${device.name} at ${device.ip}")
             },
-            onLog = { message ->
-                LogManager.logReceiver(message)
-            }
+            onLog = { LogManager.logReceiver(it) }
         )
-        discoveryManager?.startListening()
+
+        discoveryManager?.startListening(onScanComplete = {
+            activity?.runOnUiThread {
+                isScanning = false
+                btnScan.text = "Scan"
+                if (deviceAdapter.itemCount == 0) {
+                    tvStatus.text = "No devices found — tap Scan to retry"
+                    LogManager.logReceiver("No devices found")
+                }
+            }
+        })
     }
 
     private fun stopScan() {
+        isScanning = false
         discoveryManager?.stopListening()
         discoveryManager = null
         btnScan.text = "Scan"
-        LogManager.logReceiver("Scan stopped")
+        tvStatus.text = "Scan stopped"
+        LogManager.logReceiver("Scan stopped by user")
     }
 
     private fun connectTo(device: DiscoveryManager.Device) {

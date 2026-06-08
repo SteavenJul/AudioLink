@@ -27,5 +27,13 @@ class MainActivity : AppCompatActivity() {
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
             tab.text = if (position == 0) "🎙 Server" else "🎧 Receiver"
         }.attach()
+
+        // Keep screen on while app is open
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    // Don't finish on back press — minimize instead
+    override fun onBackPressed() {
+        moveTaskToBack(true)
     }
 }
