@@ -13,7 +13,6 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import java.io.DataOutputStream
 import java.net.ServerSocket
@@ -37,35 +36,54 @@ class SenderService : Service() {
     private var audioRecord: AudioRecord? = null
     private var mediaProjection: MediaProjection? = null
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Build notification FIRST before anything else
+        createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification())
 
-        val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, -1) ?: -1
-        val data = intent?.getParcelableExtra<Intent>(EXTRA_DATA)
-
-        if (resultCode == -1 || data == null) {
-            LogManager.logSender("ERROR: No MediaProjection data received")
+        if (intent == null) {
+            LogManager.logSender("ERROR: Intent is null")
             stopSelf()
             return START_NOT_STICKY
         }
 
-        val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = projectionManager.getMediaProjection(resultCode, data)
+        val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
+        val data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(EXTRA_DATA, Intent::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra<Intent>(EXTRA_DATA)
+        }
+
+        LogManager.logSender("resultCode=$resultCode data=${data != null}")
+
+        if (resultCode == Int.MIN_VALUE || data == null) {
+            LogManager.logSender("ERROR: Missing projection data (code=$resultCode)")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        try {
+            val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            mediaProjection = projectionManager.getMediaProjection(resultCode, data)
+            LogManager.logSender("MediaProjection created successfully")
+        } catch (e: Exception) {
+            LogManager.logSender("ERROR creating MediaProjection: ${e.message}")
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         isRunning = true
         startServer()
         return START_STICKY
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     private fun startServer() {
         Thread {
             try {
                 serverSocket = ServerSocket(PORT)
-                LogManager.logSender("Server started on port $PORT")
-                LogManager.logSender("Waiting for receiver to connect...")
-
+                LogManager.logSender("Server listening on port $PORT")
+                LogManager.logSender("Waiting for Oppo A52 to connect...")
                 while (isRunning) {
                     val client = serverSocket!!.accept()
                     LogManager.logSender("Receiver connected: ${client.inetAddress.hostAddress}")
@@ -77,16 +95,13 @@ class SenderService : Service() {
         }.start()
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     private fun handleClient(socket: Socket) {
         Thread {
             try {
                 socket.tcpNoDelay = true
                 socket.setSendBufferSize(16384)
-
                 val out = DataOutputStream(socket.getOutputStream())
 
-                // Capture ALL phone audio using MediaProjection
                 val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection!!)
                     .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
                     .addMatchingUsage(AudioAttributes.USAGE_GAME)
@@ -111,7 +126,7 @@ class SenderService : Service() {
 
                 val buffer = ByteArray(bufferSize)
                 audioRecord?.startRecording()
-                LogManager.logSender("Capturing phone audio — streaming started!")
+                LogManager.logSender("Audio capture started! Streaming...")
 
                 while (isRunning && socket.isConnected) {
                     val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: 0
@@ -128,18 +143,21 @@ class SenderService : Service() {
                 audioRecord?.release()
                 audioRecord = null
                 socket.close()
-                LogManager.logSender("Receiver disconnected")
+                LogManager.logSender("Client disconnected")
             }
         }.start()
     }
 
-    private fun buildNotification(): Notification {
+    private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID, "Audio Sender", NotificationManager.IMPORTANCE_LOW
             )
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
+    }
+
+    private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("AudioLink — Sending")
             .setContentText("Streaming phone audio...")
