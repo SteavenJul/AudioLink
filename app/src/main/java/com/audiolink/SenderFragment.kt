@@ -35,18 +35,14 @@ class SenderFragment : Fragment() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             LogManager.logSender("MediaProjection granted! Starting service...")
-
             val serviceIntent = Intent(requireContext(), SenderService::class.java)
             serviceIntent.putExtra(SenderService.EXTRA_RESULT_CODE, result.resultCode)
             serviceIntent.putExtra(SenderService.EXTRA_DATA, result.data!!)
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 requireContext().startForegroundService(serviceIntent)
             } else {
                 requireContext().startService(serviceIntent)
             }
-
-            // Start broadcasting so receivers can find us
             val deviceName = android.os.Build.MODEL
             discoveryManager = DiscoveryManager(
                 context = requireContext(),
@@ -55,7 +51,6 @@ class SenderFragment : Fragment() {
             )
             discoveryManager?.startBroadcasting(deviceName)
             LogManager.logSender("Broadcasting as '$deviceName'")
-
             isRunning = true
             btnToggle.text = "Stop Server"
             tvStatus.text = "Streaming — visible to receivers"
@@ -72,28 +67,23 @@ class SenderFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         tvStatus = view.findViewById(R.id.tvSenderStatus)
         tvIp = view.findViewById(R.id.tvIpAddress)
         tvPort = view.findViewById(R.id.tvPort)
         tvLog = view.findViewById(R.id.tvSenderLog)
         scrollLog = view.findViewById(R.id.scrollSenderLog)
         btnToggle = view.findViewById(R.id.btnSenderToggle)
-
         LogManager.setSenderListener { line ->
             activity?.runOnUiThread {
                 tvLog.append("$line\n")
                 scrollLog.post { scrollLog.fullScroll(View.FOCUS_DOWN) }
             }
         }
-
         detectAndShowIp()
         checkPermissions()
-
         btnToggle.setOnClickListener {
             if (!isRunning) startServer() else stopServer()
         }
-
         LogManager.logSender("Sender tab ready")
     }
 
@@ -115,37 +105,55 @@ class SenderFragment : Fragment() {
     }
 
     private fun detectAndShowIp() {
-        val ip = getHotspotIp()
+        val ip = getBestLocalIp()
         tvIp.text = "IP: $ip"
         tvPort.text = "Port: ${DiscoveryManager.AUDIO_PORT}"
         LogManager.logSender("Detected IP: $ip")
     }
 
-    private fun getHotspotIp(): String {
+    private fun getBestLocalIp(): String {
+        val candidates = mutableListOf<String>()
         try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val iface = interfaces.nextElement()
-                val addresses = iface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val addr = addresses.nextElement()
+            val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "unavailable"
+            for (iface in interfaces.asSequence()) {
+                if (!iface.isUp || iface.isLoopback) continue
+                for (addr in iface.inetAddresses.asSequence()) {
+                    if (addr.isLoopbackAddress) continue
                     val ip = addr.hostAddress ?: continue
-                    if (ip.startsWith("192.168.43")) return ip
+                    if (ip.contains(':')) continue
+                    candidates.add(ip)
+                    LogManager.logSender("Interface ${iface.name}: $ip")
                 }
             }
         } catch (e: Exception) {
             LogManager.logSender("IP detection error: ${e.message}")
         }
-        return "192.168.43.1"
+        candidates.firstOrNull { it.startsWith("192.168.43.") }?.let { return it }
+        candidates.firstOrNull { it.startsWith("192.168.") }?.let { return it }
+        candidates.firstOrNull { it.startsWith("10.") }?.let { return it }
+        return candidates.firstOrNull() ?: "unavailable"
     }
 
     private fun checkPermissions() {
+        val permissionsNeeded = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
-            LogManager.logSender("Requesting RECORD_AUDIO permission...")
+            permissionsNeeded.add(Manifest.permission.RECORD_AUDIO)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(), Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (permissionsNeeded.isNotEmpty()) {
+            LogManager.logSender("Requesting permissions: $permissionsNeeded")
             ActivityCompat.requestPermissions(
                 requireActivity(),
-                arrayOf(Manifest.permission.RECORD_AUDIO), 200
+                permissionsNeeded.toTypedArray(),
+                200
             )
         } else {
             LogManager.logSender("All permissions granted")

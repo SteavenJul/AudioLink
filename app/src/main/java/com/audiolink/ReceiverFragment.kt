@@ -1,6 +1,9 @@
 package com.audiolink
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -8,6 +11,8 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -33,14 +38,12 @@ class ReceiverFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         tvStatus = view.findViewById(R.id.tvReceiverStatus)
         tvLog = view.findViewById(R.id.tvReceiverLog)
         scrollLog = view.findViewById(R.id.scrollReceiverLog)
         btnScan = view.findViewById(R.id.btnScan)
         btnConnect = view.findViewById(R.id.btnReceiverToggle)
         rvDevices = view.findViewById(R.id.rvDevices)
-
         deviceAdapter = DeviceAdapter { device ->
             selectedDevice = device
             btnConnect.isEnabled = true
@@ -49,20 +52,16 @@ class ReceiverFragment : Fragment() {
         }
         rvDevices.layoutManager = LinearLayoutManager(requireContext())
         rvDevices.adapter = deviceAdapter
-
         LogManager.setReceiverListener { line ->
             activity?.runOnUiThread {
                 tvLog.append("$line\n")
                 scrollLog.post { scrollLog.fullScroll(View.FOCUS_DOWN) }
             }
         }
-
         tvStatus.text = "Ready — tap Scan to find devices"
-
         btnScan.setOnClickListener {
-            if (!isScanning) startScan() else stopScan()
+            if (!isScanning) checkPermissionsAndScan() else stopScan()
         }
-
         btnConnect.setOnClickListener {
             if (!isConnected) {
                 selectedDevice?.let { connectTo(it) }
@@ -70,8 +69,34 @@ class ReceiverFragment : Fragment() {
                 disconnect()
             }
         }
-
         LogManager.logReceiver("Receiver tab ready")
+    }
+
+    private fun checkPermissionsAndScan() {
+        val permissionsNeeded = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(), Manifest.permission.NEARBY_WIFI_DEVICES
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsNeeded.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+            }
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(), Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (permissionsNeeded.isNotEmpty()) {
+            LogManager.logReceiver("Requesting permissions: $permissionsNeeded")
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                permissionsNeeded.toTypedArray(),
+                201
+            )
+        }
+        startScan()
     }
 
     private fun startScan() {
@@ -82,7 +107,6 @@ class ReceiverFragment : Fragment() {
         btnScan.text = "Stop"
         tvStatus.text = "Scanning (8s)..."
         LogManager.logReceiver("Scan started...")
-
         discoveryManager?.stop()
         discoveryManager = DiscoveryManager(
             context = requireContext(),
@@ -95,7 +119,6 @@ class ReceiverFragment : Fragment() {
             },
             onLog = { LogManager.logReceiver(it) }
         )
-
         discoveryManager?.startListening(onScanComplete = {
             activity?.runOnUiThread {
                 isScanning = false
@@ -127,7 +150,6 @@ class ReceiverFragment : Fragment() {
                 android.graphics.Color.parseColor("#C62828")
             )
         isConnected = true
-
         val intent = Intent(requireContext(), ReceiverService::class.java).apply {
             putExtra(ReceiverService.EXTRA_HOST, device.ip)
             putExtra(ReceiverService.EXTRA_PORT, device.port)

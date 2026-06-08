@@ -31,10 +31,14 @@ class ReceiverService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification())
-
-        val host = intent?.getStringExtra(EXTRA_HOST) ?: "192.168.43.1"
+        val host = intent?.getStringExtra(EXTRA_HOST)
         val port = intent?.getIntExtra(EXTRA_PORT, 9999) ?: 9999
-
+        if (host.isNullOrBlank()) {
+            LogManager.logReceiver("ERROR: No host IP provided — cannot connect")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        LogManager.logReceiver("Starting receiver → $host:$port")
         isRunning = true
         startReceiving(host, port)
         return START_STICKY
@@ -68,22 +72,16 @@ class ReceiverService : Service() {
 
     private fun setupAudioTrack() {
         val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-
-        // Force wired earbuds output
         audioManager.mode = AudioManager.MODE_NORMAL
         audioManager.isSpeakerphoneOn = false
         audioManager.isBluetoothScoOn = false
-
-        // Set volume to max
         val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVol, 0)
-
         val bufferSize = AudioTrack.getMinBufferSize(
             SenderService.SAMPLE_RATE,
             AudioFormat.CHANNEL_OUT_STEREO,
             AudioFormat.ENCODING_PCM_16BIT
         ) * 4
-
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -102,7 +100,6 @@ class ReceiverService : Service() {
             .setBufferSizeInBytes(bufferSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
-
         audioTrack?.setVolume(AudioTrack.getMaxVolume())
         audioTrack?.play()
         LogManager.logReceiver("Audio ready — playing to earbuds at max volume")
@@ -142,7 +139,7 @@ class ReceiverService : Service() {
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("AudioLink — Receiving")
-            .setContentText("Playing audio from Poco X7 Pro")
+            .setContentText("Playing audio from sender")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)

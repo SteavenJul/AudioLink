@@ -5,6 +5,7 @@ import android.net.wifi.WifiManager
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.NetworkInterface
 
 class DiscoveryManager(
     private val context: Context,
@@ -27,6 +28,27 @@ class DiscoveryManager(
     private var listenSocket: DatagramSocket? = null
     private var multicastLock: WifiManager.MulticastLock? = null
 
+    private fun getBroadcastAddresses(): List<InetAddress> {
+        val addresses = mutableListOf<InetAddress>()
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces() ?: return addresses
+            for (iface in interfaces.asSequence()) {
+                if (!iface.isUp || iface.isLoopback) continue
+                for (ia in iface.interfaceAddresses) {
+                    val broadcast = ia.broadcast ?: continue
+                    addresses.add(broadcast)
+                    onLog("Found broadcast address: ${broadcast.hostAddress} on ${iface.name}")
+                }
+            }
+        } catch (e: Exception) {
+            onLog("Error getting broadcast addresses: ${e.message}")
+        }
+        try {
+            addresses.add(InetAddress.getByName("255.255.255.255"))
+        } catch (_: Exception) {}
+        return addresses
+    }
+
     fun startBroadcasting(deviceName: String) {
         isBroadcasting = true
         onLog("Broadcasting as '$deviceName'...")
@@ -37,16 +59,22 @@ class DiscoveryManager(
                 val message = "$SENDER_TAG|$deviceName|$AUDIO_PORT"
                 val data = message.toByteArray()
                 while (isBroadcasting) {
-                    try {
-                        val packet = DatagramPacket(
-                            data, data.size,
-                            InetAddress.getByName("255.255.255.255"),
-                            DISCOVERY_PORT
-                        )
-                        broadcastSocket?.send(packet)
-                        onLog("Broadcast sent")
-                    } catch (e: Exception) {
-                        onLog("Broadcast error: ${e.message}")
+                    val broadcastAddresses = getBroadcastAddresses()
+                    if (broadcastAddresses.isEmpty()) {
+                        onLog("No broadcast addresses found — retrying...")
+                    }
+                    for (broadcastAddr in broadcastAddresses) {
+                        try {
+                            val packet = DatagramPacket(
+                                data, data.size,
+                                broadcastAddr,
+                                DISCOVERY_PORT
+                            )
+                            broadcastSocket?.send(packet)
+                            onLog("Broadcast sent to ${broadcastAddr.hostAddress}")
+                        } catch (e: Exception) {
+                            onLog("Broadcast error to ${broadcastAddr.hostAddress}: ${e.message}")
+                        }
                     }
                     Thread.sleep(BROADCAST_INTERVAL)
                 }
@@ -62,6 +90,7 @@ class DiscoveryManager(
         onLog("Scanning for ${SCAN_TIMEOUT / 1000}s...")
         Thread {
             val startTime = System.currentTimeMillis()
+            val foundIps = mutableSetOf<String>()
             try {
                 listenSocket = DatagramSocket(DISCOVERY_PORT)
                 listenSocket?.soTimeout = 1000
@@ -74,7 +103,8 @@ class DiscoveryManager(
                         val senderIp = packet.address.hostAddress ?: continue
                         if (message.startsWith(SENDER_TAG)) {
                             val parts = message.split("|")
-                            if (parts.size >= 3) {
+                            if (parts.size >= 3 && !foundIps.contains(senderIp)) {
+                                foundIps.add(senderIp)
                                 onDeviceFound(
                                     Device(
                                         name = parts[1],
