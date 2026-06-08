@@ -1,8 +1,10 @@
 package com.audiolink
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.wifi.WifiManager
+import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -10,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -23,6 +26,27 @@ class SenderFragment : Fragment() {
     private lateinit var tvLog: TextView
     private lateinit var scrollLog: ScrollView
     private lateinit var btnToggle: Button
+    private var isRunning = false
+
+    private val projectionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            LogManager.logSender("MediaProjection permission granted!")
+            LogManager.logSender("Starting audio capture...")
+            val intent = Intent(requireContext(), SenderService::class.java).apply {
+                putExtra(SenderService.EXTRA_RESULT_CODE, result.resultCode)
+                putExtra(SenderService.EXTRA_DATA, result.data)
+            }
+            requireContext().startForegroundService(intent)
+            isRunning = true
+            btnToggle.text = "Stop Server"
+            tvStatus.text = "Streaming phone audio..."
+        } else {
+            LogManager.logSender("MediaProjection permission denied!")
+            tvStatus.text = "Permission denied — tap Start to try again"
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -39,7 +63,6 @@ class SenderFragment : Fragment() {
         scrollLog = view.findViewById(R.id.scrollSenderLog)
         btnToggle = view.findViewById(R.id.btnSenderToggle)
 
-        // Wire up log manager to this UI
         LogManager.setSenderListener { line ->
             activity?.runOnUiThread {
                 tvLog.append("$line\n")
@@ -51,13 +74,25 @@ class SenderFragment : Fragment() {
         checkPermissions()
 
         btnToggle.setOnClickListener {
-            LogManager.logSender("Start button tapped — audio coming in Phase 5")
-            tvStatus.text = "Phase 5 will activate streaming"
+            if (!isRunning) startServer() else stopServer()
         }
 
         LogManager.logSender("Sender tab ready")
-        LogManager.logSender("Permissions: ${getPermissionStatus()}")
-        LogManager.logSender("Waiting for Phase 5 to wire audio...")
+    }
+
+    private fun startServer() {
+        LogManager.logSender("Requesting screen capture permission...")
+        tvStatus.text = "Requesting permission..."
+        val manager = requireContext().getSystemService(MediaProjectionManager::class.java)
+        projectionLauncher.launch(manager.createScreenCaptureIntent())
+    }
+
+    private fun stopServer() {
+        requireContext().stopService(Intent(requireContext(), SenderService::class.java))
+        isRunning = false
+        btnToggle.text = "Start Server"
+        tvStatus.text = "Stopped"
+        LogManager.logSender("Server stopped")
     }
 
     private fun detectAndShowIp() {
@@ -69,7 +104,6 @@ class SenderFragment : Fragment() {
 
     private fun getHotspotIp(): String {
         try {
-            // Hotspot IP is always 192.168.43.1 on Android
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val iface = interfaces.nextElement()
@@ -88,9 +122,10 @@ class SenderFragment : Fragment() {
 
     private fun checkPermissions() {
         val missing = mutableListOf<String>()
-        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) missing.add("RECORD_AUDIO")
+        if (!hasPermission(Manifest.permission.RECORD_AUDIO))
+            missing.add(Manifest.permission.RECORD_AUDIO)
         if (missing.isNotEmpty()) {
-            LogManager.logSender("Missing permissions: $missing")
+            LogManager.logSender("Requesting permissions: $missing")
             ActivityCompat.requestPermissions(requireActivity(), missing.toTypedArray(), 200)
         } else {
             LogManager.logSender("All permissions granted")
@@ -99,13 +134,4 @@ class SenderFragment : Fragment() {
 
     private fun hasPermission(p: String) =
         ContextCompat.checkSelfPermission(requireContext(), p) == PackageManager.PERMISSION_GRANTED
-
-    private fun getPermissionStatus(): String {
-        val audio = hasPermission(Manifest.permission.RECORD_AUDIO)
-        return "RECORD_AUDIO=$audio"
-    }
-
-    fun updateStatus(status: String) {
-        activity?.runOnUiThread { tvStatus.text = status }
-    }
 }
